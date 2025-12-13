@@ -1,0 +1,17 @@
+{
+    "moduleFileExtensions": ["js", "json", "ts"],
+    "rootDir": "..",
+    "testEnvironment": "node",
+    "testRegex": ".e2e-spec.ts$",
+    "transform": {
+        "^.+\\.(t|j)s$": "ts-jest"
+    },
+    "moduleNameMapper": {
+        "^@common/(.*)$": "<rootDir>/src/common/$1",
+        "^@modules/(.*)$": "<rootDir>/src/modules/$1",
+        "^@chat/(.*)$": "<rootDir>/src/modules/chat/$1",
+        "^@user/(.*)$": "<rootDir>/src/modules/user/$1",
+        "^@room/(.*)$": "<rootDir>/src/modules/room/$1",
+        "^uuid$": "<rootDir>/test/__mocks__/uuid.ts"
+    }
+}
