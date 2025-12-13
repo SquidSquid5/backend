@@ -12,6 +12,8 @@ import {
 } from '@user/domain/ports/inbound/user.usecase';
 import { RegisterRequestDto } from '@user/presentation/dto/register-request.dto';
 import { RegisterResponseDto } from '@user/presentation/dto/register-response.dto';
+import { LoginRequestDto } from '@user/presentation/dto/login-request.dto';
+import { LoginResponseDto } from '@user/presentation/dto/login-response.dto';
 
 @Controller('api/users')
 export class UsersController {
@@ -32,5 +34,18 @@ export class UsersController {
         });
 
         return new RegisterResponseDto(user);
+    }
+
+    @Post('login')
+    @HttpCode(HttpStatus.OK)
+    public async login(
+        @Body() request: LoginRequestDto,
+    ): Promise<LoginResponseDto> {
+        const result = await this.userUseCase.login({
+            email: request.email,
+            password: request.password,
+        });
+
+        return new LoginResponseDto(result.user, result.token);
     }
 }

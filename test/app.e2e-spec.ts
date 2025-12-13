@@ -1,10 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
+import jwt from 'jsonwebtoken';
 import { AppModule } from './../src/app.module';
 import { HttpExceptionFilter } from './../src/common/filters/http-exception.filter';
 
-describe('User Registration (e2e)', () => {
+describe('User Registration & Login (e2e)', () => {
     let app: INestApplication;
 
     beforeEach(async () => {
@@ -105,5 +106,97 @@ describe('User Registration (e2e)', () => {
             .expect(400);
 
         expect(response.body.errorCode).toBe('INVALID_NICKNAME');
+    });
+
+    it('should login successfully after registration', async () => {
+        const registerResponse = await request(app.getHttpServer())
+            .post('/api/users/register')
+            .send({
+                email: 'login@example.com',
+                password: 'Password123',
+                nickname: 'tester',
+            })
+            .expect(201);
+
+        const loginResponse = await request(app.getHttpServer())
+            .post('/api/users/login')
+            .send({
+                email: 'login@example.com',
+                password: 'Password123',
+            })
+            .expect(200);
+
+        expect(loginResponse.body).toMatchObject({
+            userId: registerResponse.body.userId,
+            token: expect.any(String),
+            nickname: 'tester',
+        });
+
+        const decoded = jwt.verify(
+            loginResponse.body.token,
+            process.env.JWT_SECRET ?? 'dev-secret',
+        ) as jwt.JwtPayload;
+        expect(decoded.userId).toBe(registerResponse.body.userId);
+        expect(decoded.email).toBe('login@example.com');
+    });
+
+    it('should return invalid credentials for unknown email', async () => {
+        const response = await request(app.getHttpServer())
+            .post('/api/users/login')
+            .send({
+                email: 'unknown@example.com',
+                password: 'Password123',
+            })
+            .expect(401);
+
+        expect(response.body).toMatchObject({
+            errorCode: 'INVALID_CREDENTIALS',
+            message: '이메일 또는 비밀번호가 올바르지 않습니다.',
+        });
+    });
+
+    it('should return invalid credentials for wrong password', async () => {
+        await request(app.getHttpServer()).post('/api/users/register').send({
+            email: 'wrongpass@example.com',
+            password: 'Password123',
+            nickname: 'tester',
+        });
+
+        const response = await request(app.getHttpServer())
+            .post('/api/users/login')
+            .send({
+                email: 'wrongpass@example.com',
+                password: 'Invalid123',
+            })
+            .expect(401);
+
+        expect(response.body.errorCode).toBe('INVALID_CREDENTIALS');
+    });
+
+    it('should validate email format in login', async () => {
+        const response = await request(app.getHttpServer())
+            .post('/api/users/login')
+            .send({
+                email: 'invalid-email',
+                password: 'Password123',
+            })
+            .expect(400);
+
+        expect(response.body.errorCode).toBe('INVALID_EMAIL_FORMAT');
+    });
+
+    it('should return validation error when password is missing', async () => {
+        await request(app.getHttpServer()).post('/api/users/register').send({
+            email: 'missingpass@example.com',
+            password: 'Password123',
+            nickname: 'tester',
+        });
+
+        await request(app.getHttpServer())
+            .post('/api/users/login')
+            .send({
+                email: 'missingpass@example.com',
+            })
+            .expect(400);
     });
 });

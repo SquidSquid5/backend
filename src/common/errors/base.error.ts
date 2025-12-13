@@ -32,8 +32,13 @@ export abstract class DomainError extends BaseError {
 }
 
 export abstract class PolicyError extends BaseError {
-    protected constructor(code: ErrorCode, message: string, cause?: unknown) {
-        super(code, message, 400, cause);
+    protected constructor(
+        code: ErrorCode,
+        message: string,
+        cause?: unknown,
+        httpStatus = 400,
+    ) {
+        super(code, message, httpStatus, cause);
     }
 }
 
