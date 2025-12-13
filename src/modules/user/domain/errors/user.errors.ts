@@ -40,6 +40,17 @@ export class DuplicateEmailError extends PolicyError {
     }
 }
 
+export class InvalidCredentialsError extends PolicyError {
+    constructor() {
+        super(
+            ErrorCodes.USER_INVALID_CREDENTIALS,
+            '이메일 또는 비밀번호가 올바르지 않습니다.',
+            undefined,
+            401,
+        );
+    }
+}
+
 export class HashFailedError extends InfrastructureError {
     constructor(cause?: unknown) {
         super(
@@ -55,6 +66,16 @@ export class SaveFailedError extends InfrastructureError {
         super(
             ErrorCodes.INFRA_SAVE_FAILED,
             '사용자 저장에 실패했습니다.',
+            cause,
+        );
+    }
+}
+
+export class TokenGenerationFailedError extends InfrastructureError {
+    constructor(cause?: unknown) {
+        super(
+            ErrorCodes.INFRA_TOKEN_GENERATION_FAILED,
+            '토큰 생성에 실패했습니다.',
             cause,
         );
     }

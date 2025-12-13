@@ -21,4 +21,23 @@ export class BcryptPasswordHasher implements PasswordHasher {
             throw new HashFailedError(error);
         }
     }
+
+    public async verify(
+        plainPassword: string,
+        hashedPassword: string,
+    ): Promise<boolean> {
+        if (typeof plainPassword !== 'string' || plainPassword.length === 0) {
+            return false;
+        }
+
+        if (typeof hashedPassword !== 'string' || hashedPassword.length === 0) {
+            return false;
+        }
+
+        try {
+            return await bcrypt.compare(plainPassword, hashedPassword);
+        } catch (error) {
+            throw new HashFailedError(error);
+        }
+    }
 }

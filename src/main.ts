@@ -1,6 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { Logger, ValidationPipe } from '@nestjs/common';
+import { BadRequestException, Logger, ValidationPipe } from '@nestjs/common';
 import { HttpExceptionFilter } from '@common/filters/http-exception.filter';
 
 async function bootstrap() {
@@ -18,6 +18,19 @@ async function bootstrap() {
                 whitelist: true,
                 transform: true,
                 forbidNonWhitelisted: true,
+                stopAtFirstError: true,
+                exceptionFactory: (errors) => {
+                    const firstError = errors[0];
+                    const constraints = firstError?.constraints;
+                    const message =
+                        constraints !== undefined
+                            ? Object.values(constraints)[0]
+                            : '잘못된 요청입니다.';
+                    return new BadRequestException({
+                        errorCode: 'BAD_REQUEST',
+                        message,
+                    });
+                },
             }),
         );
         app.useGlobalFilters(new HttpExceptionFilter());

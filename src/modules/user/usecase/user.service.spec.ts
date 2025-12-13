@@ -3,14 +3,17 @@ import { User } from '@user/domain/entities/user.entity';
 import {
     DuplicateEmailError,
     InvalidEmailFormatError,
+    InvalidCredentialsError,
     WeakPasswordError,
 } from '@user/domain/errors/user.errors';
 import type { UserRepository } from '@user/domain/ports/outbound/user.repository';
 import type { PasswordHasher } from '@user/domain/ports/outbound/password.hasher';
+import type { TokenGenerator } from '@user/domain/ports/outbound/token.generator';
 
 describe('UserService', () => {
     let userRepository: jest.Mocked<UserRepository>;
     let passwordHasher: jest.Mocked<PasswordHasher>;
+    let tokenGenerator: jest.Mocked<TokenGenerator>;
     let service: UserService;
 
     beforeEach(() => {
@@ -20,8 +23,16 @@ describe('UserService', () => {
         };
         passwordHasher = {
             hash: jest.fn(),
+            verify: jest.fn().mockResolvedValue(false),
         };
-        service = new UserService(userRepository, passwordHasher);
+        tokenGenerator = {
+            generate: jest.fn(),
+        };
+        service = new UserService(
+            userRepository,
+            passwordHasher,
+            tokenGenerator,
+        );
     });
 
     it('should register a user successfully', async () => {
@@ -82,5 +93,69 @@ describe('UserService', () => {
                 nickname: 'tester',
             }),
         ).rejects.toBeInstanceOf(WeakPasswordError);
+    });
+
+    describe('login', () => {
+        it('should login successfully and return token', async () => {
+            const user = User.create({
+                id: 'id-1',
+                email: 'user@example.com',
+                hashedPassword: 'hashed',
+                nickname: 'tester',
+            });
+            userRepository.findByEmail.mockResolvedValue(user);
+            passwordHasher.verify.mockResolvedValue(true);
+            tokenGenerator.generate.mockReturnValue('token');
+
+            const result = await service.login({
+                email: 'user@example.com',
+                password: 'Password123',
+            });
+
+            expect(userRepository.findByEmail).toHaveBeenCalledWith(
+                'user@example.com',
+            );
+            expect(passwordHasher.verify).toHaveBeenCalledWith(
+                'Password123',
+                'hashed',
+            );
+            expect(tokenGenerator.generate).toHaveBeenCalledWith({
+                userId: 'id-1',
+                email: 'user@example.com',
+            });
+            expect(result.user).toBe(user);
+            expect(result.token).toBe('token');
+        });
+
+        it('should throw invalid credentials when user not found', async () => {
+            userRepository.findByEmail.mockResolvedValue(null);
+
+            await expect(
+                service.login({
+                    email: 'missing@example.com',
+                    password: 'Password123',
+                }),
+            ).rejects.toBeInstanceOf(InvalidCredentialsError);
+
+            expect(passwordHasher.verify).toHaveBeenCalled();
+        });
+
+        it('should throw invalid credentials when password does not match', async () => {
+            const user = User.create({
+                id: 'id-1',
+                email: 'user@example.com',
+                hashedPassword: 'hashed',
+                nickname: 'tester',
+            });
+            userRepository.findByEmail.mockResolvedValue(user);
+            passwordHasher.verify.mockResolvedValue(false);
+
+            await expect(
+                service.login({
+                    email: 'user@example.com',
+                    password: 'wrong',
+                }),
+            ).rejects.toBeInstanceOf(InvalidCredentialsError);
+        });
     });
 });
