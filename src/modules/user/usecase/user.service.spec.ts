@@ -5,16 +5,22 @@ import {
     InvalidEmailFormatError,
     InvalidCredentialsError,
     WeakPasswordError,
+    UnauthorizedError,
+    TokenExpiredError,
 } from '@user/domain/errors/user.errors';
 import type { UserRepository } from '@user/domain/ports/outbound/user.repository';
 import type { PasswordHasher } from '@user/domain/ports/outbound/password.hasher';
 import type { TokenGenerator } from '@user/domain/ports/outbound/token.generator';
+import type { TokenBlacklist } from '@user/domain/ports/outbound/token.blacklist';
+import jwt from 'jsonwebtoken';
 
 describe('UserService', () => {
     let userRepository: jest.Mocked<UserRepository>;
     let passwordHasher: jest.Mocked<PasswordHasher>;
     let tokenGenerator: jest.Mocked<TokenGenerator>;
+    let tokenBlacklist: jest.Mocked<TokenBlacklist>;
     let service: UserService;
+    const secret = 'dev-secret';
 
     beforeEach(() => {
         userRepository = {
@@ -28,10 +34,16 @@ describe('UserService', () => {
         tokenGenerator = {
             generate: jest.fn(),
         };
+        tokenBlacklist = {
+            add: jest.fn(),
+            isBlacklisted: jest.fn(),
+        };
         service = new UserService(
             userRepository,
             passwordHasher,
             tokenGenerator,
+            tokenBlacklist,
+            secret,
         );
     });
 
@@ -156,6 +168,43 @@ describe('UserService', () => {
                     password: 'wrong',
                 }),
             ).rejects.toBeInstanceOf(InvalidCredentialsError);
+        });
+    });
+
+    describe('logout', () => {
+        it('should add token to blacklist with exp', async () => {
+            const token = jwt.sign(
+                { userId: 'id-1', email: 'user@example.com' },
+                secret,
+                { expiresIn: '1h' },
+            );
+            const now = Math.floor(Date.now() / 1000);
+
+            await service.logout({ token });
+
+            expect(tokenBlacklist.add).toHaveBeenCalled();
+            const [, expiresAt] = tokenBlacklist.add.mock.calls[0];
+            expect(expiresAt.getTime() / 1000).toBeGreaterThanOrEqual(
+                now + 3590,
+            );
+        });
+
+        it('should throw UnauthorizedError for invalid token', async () => {
+            await expect(
+                service.logout({ token: 'invalid' }),
+            ).rejects.toBeInstanceOf(UnauthorizedError);
+        });
+
+        it('should throw TokenExpiredError for expired token', async () => {
+            const expiredToken = jwt.sign(
+                { userId: 'id-1', email: 'user@example.com' },
+                secret,
+                { expiresIn: -1 },
+            );
+
+            await expect(
+                service.logout({ token: expiredToken }),
+            ).rejects.toBeInstanceOf(TokenExpiredError);
         });
     });
 });

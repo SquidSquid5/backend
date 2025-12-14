@@ -1,5 +1,6 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'crypto';
+import jwt from 'jsonwebtoken';
 import { User } from '@user/domain/entities/user.entity';
 import { EmailValidator } from '@user/domain/validators/email.validator';
 import { PasswordValidator } from '@user/domain/validators/password.validator';
@@ -17,20 +18,30 @@ import {
     type TokenGenerator,
 } from '@user/domain/ports/outbound/token.generator';
 import {
+    TOKEN_BLACKLIST,
+    type TokenBlacklist,
+} from '@user/domain/ports/outbound/token.blacklist';
+import {
     type RegisterUserCommand,
     type LoginUserCommand,
     type UserUseCase,
     type LoginResult,
+    type LogoutUserCommand,
 } from '@user/domain/ports/inbound/user.usecase';
 import {
     DuplicateEmailError,
     InvalidCredentialsError,
+    TokenExpiredError,
+    UnauthorizedError,
+    BlacklistFailedError,
 } from '@user/domain/errors/user.errors';
 
 @Injectable()
 export class UserService implements UserUseCase {
     private readonly dummyPasswordHash =
         '$2b$10$CwTycUXWue0Thq9StjUM0uJ8A5C.WKoy0/uEM4L5EU9..qHo1Jgiu';
+
+    private readonly logger = new Logger(UserService.name);
 
     constructor(
         @Inject(USER_REPOSITORY)
@@ -39,6 +50,10 @@ export class UserService implements UserUseCase {
         private readonly passwordHasher: PasswordHasher,
         @Inject(TOKEN_GENERATOR)
         private readonly tokenGenerator: TokenGenerator,
+        @Inject(TOKEN_BLACKLIST)
+        private readonly tokenBlacklist: TokenBlacklist,
+        @Inject('JWT_SECRET')
+        private readonly jwtSecret: string,
     ) {}
 
     public async register(command: RegisterUserCommand): Promise<User> {
@@ -88,5 +103,42 @@ export class UserService implements UserUseCase {
         });
 
         return { user, token };
+    }
+
+    public async logout(command: LogoutUserCommand): Promise<void> {
+        const decoded = this.decodeToken(command.token);
+        const expiresAt = this.getExpiresAt(decoded);
+
+        try {
+            await this.tokenBlacklist.add(command.token, expiresAt);
+            this.logger.log(
+                `Token blacklisted until ${expiresAt.toISOString()}`,
+            );
+        } catch (error) {
+            throw new BlacklistFailedError(error);
+        }
+    }
+
+    private decodeToken(
+        token: string,
+    ): jwt.JwtPayload & { exp: number | undefined } {
+        try {
+            return jwt.verify(token, this.jwtSecret) as jwt.JwtPayload & {
+                exp: number | undefined;
+            };
+        } catch (error) {
+            if (error instanceof jwt.TokenExpiredError) {
+                throw new TokenExpiredError();
+            }
+            throw new UnauthorizedError();
+        }
+    }
+
+    private getExpiresAt(decoded: { exp: number | undefined }): Date {
+        if (decoded.exp === undefined) {
+            throw new UnauthorizedError();
+        }
+
+        return new Date(decoded.exp * 1000);
     }
 }
