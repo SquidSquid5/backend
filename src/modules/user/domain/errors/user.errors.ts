@@ -51,6 +51,28 @@ export class InvalidCredentialsError extends PolicyError {
     }
 }
 
+export class UnauthorizedError extends PolicyError {
+    constructor() {
+        super(
+            ErrorCodes.USER_UNAUTHORIZED,
+            '인증 정보가 없거나 유효하지 않습니다.',
+            undefined,
+            401,
+        );
+    }
+}
+
+export class TokenExpiredError extends PolicyError {
+    constructor() {
+        super(
+            ErrorCodes.USER_TOKEN_EXPIRED,
+            '토큰이 만료되었습니다.',
+            undefined,
+            401,
+        );
+    }
+}
+
 export class HashFailedError extends InfrastructureError {
     constructor(cause?: unknown) {
         super(
@@ -76,6 +98,16 @@ export class TokenGenerationFailedError extends InfrastructureError {
         super(
             ErrorCodes.INFRA_TOKEN_GENERATION_FAILED,
             '토큰 생성에 실패했습니다.',
+            cause,
+        );
+    }
+}
+
+export class BlacklistFailedError extends InfrastructureError {
+    constructor(cause?: unknown) {
+        super(
+            ErrorCodes.INFRA_BLACKLIST_FAILED,
+            '로그아웃 처리에 실패했습니다.',
             cause,
         );
     }

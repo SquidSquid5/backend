@@ -5,6 +5,7 @@ import {
     HttpStatus,
     Inject,
     Post,
+    Req,
 } from '@nestjs/common';
 import {
     USER_USE_CASE,
@@ -14,6 +15,9 @@ import { RegisterRequestDto } from '@user/presentation/dto/register-request.dto'
 import { RegisterResponseDto } from '@user/presentation/dto/register-response.dto';
 import { LoginRequestDto } from '@user/presentation/dto/login-request.dto';
 import { LoginResponseDto } from '@user/presentation/dto/login-response.dto';
+import { LogoutResponseDto } from '@user/presentation/dto/logout-response.dto';
+import { UnauthorizedError } from '@user/domain/errors/user.errors';
+import type { Request } from 'express';
 
 @Controller('api/users')
 export class UsersController {
@@ -47,5 +51,24 @@ export class UsersController {
         });
 
         return new LoginResponseDto(result.user, result.token);
+    }
+
+    @Post('logout')
+    @HttpCode(HttpStatus.OK)
+    public async logout(@Req() req: Request): Promise<LogoutResponseDto> {
+        const token = this.extractToken(req);
+        await this.userUseCase.logout({ token });
+        return new LogoutResponseDto();
+    }
+
+    private extractToken(req: Request): string {
+        const authorization = req.headers.authorization;
+        if (
+            authorization === undefined ||
+            authorization.startsWith('Bearer ') === false
+        ) {
+            throw new UnauthorizedError();
+        }
+        return authorization.substring(7);
     }
 }

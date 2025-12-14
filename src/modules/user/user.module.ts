@@ -5,9 +5,11 @@ import { BcryptPasswordHasher } from '@user/infrastructure/security/bcrypt-passw
 import { USER_REPOSITORY } from '@user/domain/ports/outbound/user.repository';
 import { PASSWORD_HASHER } from '@user/domain/ports/outbound/password.hasher';
 import { TOKEN_GENERATOR } from '@user/domain/ports/outbound/token.generator';
+import { TOKEN_BLACKLIST } from '@user/domain/ports/outbound/token.blacklist';
 import { USER_USE_CASE } from '@user/domain/ports/inbound/user.usecase';
 import { UserService } from '@user/usecase/user.service';
 import { JwtTokenGenerator } from '@user/infrastructure/security/jwt-token.generator';
+import { InMemoryTokenBlacklist } from '@user/infrastructure/security/in-memory-token.blacklist';
 
 @Module({
     controllers: [UsersController],
@@ -23,6 +25,10 @@ import { JwtTokenGenerator } from '@user/infrastructure/security/jwt-token.gener
         {
             provide: TOKEN_GENERATOR,
             useClass: JwtTokenGenerator,
+        },
+        {
+            provide: TOKEN_BLACKLIST,
+            useClass: InMemoryTokenBlacklist,
         },
         {
             provide: USER_USE_CASE,
