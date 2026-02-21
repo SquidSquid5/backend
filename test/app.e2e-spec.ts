@@ -60,6 +60,17 @@ function getMyInfo(app: INestApplication, token: string) {
         .set('Authorization', `Bearer ${token}`);
 }
 
+function updateMyInfo(
+    app: INestApplication,
+    token: string,
+    body: Record<string, unknown>,
+) {
+    return request(app.getHttpServer())
+        .patch('/api/users/me')
+        .set('Authorization', `Bearer ${token}`)
+        .send(body);
+}
+
 describe('User Registration (e2e)', () => {
     let app: INestApplication;
 
@@ -297,6 +308,146 @@ describe('Get My Info (e2e)', () => {
         );
 
         const response = await getMyInfo(app, token).expect(404);
+
+        expect(response.body.errorCode).toBe('NOT_FOUND');
+    });
+});
+
+describe('Update My Info (e2e)', () => {
+    let app: INestApplication;
+    const jwtSecret = process.env.JWT_SECRET ?? 'dev-secret';
+
+    beforeEach(async () => {
+        app = await createApp();
+        await registerUser(app, 'update@example.com').expect(201);
+    });
+
+    afterEach(async () => {
+        await app.close();
+    });
+
+    it('should update nickname', async () => {
+        const login = await loginUser(app, 'update@example.com').expect(200);
+
+        const response = await updateMyInfo(app, login.body.token, {
+            nickname: 'newnick',
+        }).expect(200);
+
+        expect(response.body).toMatchObject({
+            userId: login.body.userId,
+            email: 'update@example.com',
+            nickname: 'newnick',
+            updatedAt: expect.any(String),
+        });
+    });
+
+    it('should update profile image', async () => {
+        const login = await loginUser(app, 'update@example.com').expect(200);
+
+        const response = await updateMyInfo(app, login.body.token, {
+            profileImage: 'https://example.com/img.jpg',
+        }).expect(200);
+
+        expect(response.body.profileImage).toBe('https://example.com/img.jpg');
+    });
+
+    it('should change password and login with new password', async () => {
+        const login = await loginUser(app, 'update@example.com').expect(200);
+
+        await updateMyInfo(app, login.body.token, {
+            currentPassword: 'Password123',
+            newPassword: 'NewPass456',
+        }).expect(200);
+
+        await loginUser(app, 'update@example.com', 'Password123').expect(401);
+        await loginUser(app, 'update@example.com', 'NewPass456').expect(200);
+    });
+
+    it('should update nickname and profile image together', async () => {
+        const login = await loginUser(app, 'update@example.com').expect(200);
+
+        const response = await updateMyInfo(app, login.body.token, {
+            nickname: 'combined',
+            profileImage: 'https://example.com/avatar.png',
+        }).expect(200);
+
+        expect(response.body.nickname).toBe('combined');
+        expect(response.body.profileImage).toBe(
+            'https://example.com/avatar.png',
+        );
+    });
+
+    it('should return 401 when current password is wrong', async () => {
+        const login = await loginUser(app, 'update@example.com').expect(200);
+
+        const response = await updateMyInfo(app, login.body.token, {
+            currentPassword: 'WrongPass123',
+            newPassword: 'NewPass456',
+        }).expect(401);
+
+        expect(response.body.errorCode).toBe('INVALID_PASSWORD');
+    });
+
+    it('should return 400 when new password is weak', async () => {
+        const login = await loginUser(app, 'update@example.com').expect(200);
+
+        const response = await updateMyInfo(app, login.body.token, {
+            currentPassword: 'Password123',
+            newPassword: 'weak',
+        }).expect(400);
+
+        expect(response.body.errorCode).toBe('WEAK_PASSWORD');
+    });
+
+    it('should return 400 when nickname is invalid', async () => {
+        const login = await loginUser(app, 'update@example.com').expect(200);
+
+        const response = await updateMyInfo(app, login.body.token, {
+            nickname: 'a',
+        }).expect(400);
+
+        expect(response.body.errorCode).toBe('INVALID_NICKNAME');
+    });
+
+    it('should return 400 when profile image URL is invalid', async () => {
+        const login = await loginUser(app, 'update@example.com').expect(200);
+
+        const response = await updateMyInfo(app, login.body.token, {
+            profileImage: 'not-a-url',
+        }).expect(400);
+
+        expect(response.body.errorCode).toBe('INVALID_PROFILE_IMAGE_URL');
+    });
+
+    it('should not change password when only newPassword is provided', async () => {
+        const login = await loginUser(app, 'update@example.com').expect(200);
+
+        await updateMyInfo(app, login.body.token, {
+            newPassword: 'NewPass456',
+        }).expect(200);
+
+        await loginUser(app, 'update@example.com', 'Password123').expect(200);
+    });
+
+    it('should return 401 without token', async () => {
+        const response = await request(app.getHttpServer())
+            .patch('/api/users/me')
+            .send({ nickname: 'newnick' })
+            .expect(401);
+
+        expect(response.body.errorCode).toBe('UNAUTHORIZED');
+    });
+
+    it('should return 404 for non-existent user', async () => {
+        const token = jwt.sign(
+            { userId: 'non-existent-id', email: 'ghost@example.com' },
+            jwtSecret,
+            { expiresIn: '1h' },
+        );
+
+        const response = await updateMyInfo(app, token, {
+            nickname: 'newnick',
+        }).expect(404);
 
         expect(response.body.errorCode).toBe('NOT_FOUND');
     });

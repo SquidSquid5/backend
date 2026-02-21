@@ -19,6 +19,14 @@ export interface GetMyInfoCommand {
     userId: string;
 }
 
+export interface UpdateMyInfoCommand {
+    userId: string;
+    nickname?: string;
+    profileImage?: string;
+    currentPassword?: string;
+    newPassword?: string;
+}
+
 export interface LoginResult {
     user: User;
     token: string;
@@ -29,6 +37,7 @@ export interface UserUseCase {
     login(command: LoginUserCommand): Promise<LoginResult>;
     logout(command: LogoutUserCommand): Promise<void>;
     getMyInfo(command: GetMyInfoCommand): Promise<User>;
+    updateMyInfo(command: UpdateMyInfoCommand): Promise<User>;
 }
 
 export const USER_USE_CASE = Symbol('USER_USE_CASE');

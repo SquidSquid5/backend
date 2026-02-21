@@ -5,6 +5,7 @@ import {
     HttpCode,
     HttpStatus,
     Inject,
+    Patch,
     Post,
     Req,
 } from '@nestjs/common';
@@ -18,6 +19,8 @@ import { LoginRequestDto } from '@user/presentation/dto/login-request.dto';
 import { LoginResponseDto } from '@user/presentation/dto/login-response.dto';
 import { LogoutResponseDto } from '@user/presentation/dto/logout-response.dto';
 import { GetMyInfoResponseDto } from '@user/presentation/dto/get-my-info-response.dto';
+import { UpdateMyInfoRequestDto } from '@user/presentation/dto/update-my-info-request.dto';
+import { UpdateMyInfoResponseDto } from '@user/presentation/dto/update-my-info-response.dto';
 import {
     UnauthorizedError,
     TokenExpiredError,
@@ -86,6 +89,30 @@ export class UsersController {
         });
 
         return new GetMyInfoResponseDto(user.toPublicInfo());
+    }
+
+    @Patch('me')
+    @HttpCode(HttpStatus.OK)
+    public async updateMyInfo(
+        @Req() req: Request,
+        @Body() request: UpdateMyInfoRequestDto,
+    ): Promise<UpdateMyInfoResponseDto> {
+        const token = this.extractToken(req);
+        const decoded = this.verifyToken(token);
+
+        if (!decoded.userId) {
+            throw new UnauthorizedError();
+        }
+
+        const user = await this.userUseCase.updateMyInfo({
+            userId: decoded.userId,
+            nickname: request.nickname,
+            profileImage: request.profileImage,
+            currentPassword: request.currentPassword,
+            newPassword: request.newPassword,
+        });
+
+        return new UpdateMyInfoResponseDto(user);
     }
 
     private extractToken(req: Request): string {

@@ -8,6 +8,9 @@ import {
     UnauthorizedError,
     TokenExpiredError,
     UserNotFoundError,
+    InvalidPasswordError,
+    InvalidProfileImageUrlError,
+    InvalidNicknameError,
 } from '@user/domain/errors/user.errors';
 import type { UserRepository } from '@user/domain/ports/outbound/user.repository';
 import type { PasswordHasher } from '@user/domain/ports/outbound/password.hasher';
@@ -238,6 +241,139 @@ describe('UserService', () => {
             expect(userRepository.findById).toHaveBeenCalledWith(
                 'non-existent-id',
             );
+        });
+    });
+
+    describe('updateMyInfo', () => {
+        const existingUser = User.create({
+            id: 'user-id-123',
+            email: 'user@example.com',
+            hashedPassword: 'hashed-password',
+            nickname: 'original',
+        });
+
+        beforeEach(() => {
+            userRepository.findById.mockResolvedValue(existingUser);
+            userRepository.save.mockImplementation(async (user) => user);
+        });
+
+        it('should update nickname only', async () => {
+            const result = await service.updateMyInfo({
+                userId: 'user-id-123',
+                nickname: 'newname',
+            });
+
+            expect(result.getNickname()).toBe('newname');
+            expect(result.getEmail()).toBe('user@example.com');
+            expect(userRepository.save).toHaveBeenCalledTimes(1);
+        });
+
+        it('should update profile image only', async () => {
+            const result = await service.updateMyInfo({
+                userId: 'user-id-123',
+                profileImage: 'https://example.com/img.jpg',
+            });
+
+            expect(result.getProfileImage()).toBe(
+                'https://example.com/img.jpg',
+            );
+            expect(result.getNickname()).toBe('original');
+            expect(userRepository.save).toHaveBeenCalledTimes(1);
+        });
+
+        it('should change password when currentPassword and newPassword provided', async () => {
+            passwordHasher.verify.mockResolvedValue(true);
+            passwordHasher.hash.mockResolvedValue('new-hashed');
+
+            const result = await service.updateMyInfo({
+                userId: 'user-id-123',
+                currentPassword: 'OldPass123',
+                newPassword: 'NewPass456',
+            });
+
+            expect(passwordHasher.verify).toHaveBeenCalledWith(
+                'OldPass123',
+                'hashed-password',
+            );
+            expect(passwordHasher.hash).toHaveBeenCalledWith('NewPass456');
+            expect(result.getHashedPassword()).toBe('new-hashed');
+        });
+
+        it('should update nickname and profile image together', async () => {
+            const result = await service.updateMyInfo({
+                userId: 'user-id-123',
+                nickname: 'newname',
+                profileImage: 'https://example.com/img.jpg',
+            });
+
+            expect(result.getNickname()).toBe('newname');
+            expect(result.getProfileImage()).toBe(
+                'https://example.com/img.jpg',
+            );
+        });
+
+        it('should throw InvalidPasswordError when current password is wrong', async () => {
+            passwordHasher.verify.mockResolvedValue(false);
+
+            await expect(
+                service.updateMyInfo({
+                    userId: 'user-id-123',
+                    currentPassword: 'WrongPass',
+                    newPassword: 'NewPass456',
+                }),
+            ).rejects.toBeInstanceOf(InvalidPasswordError);
+        });
+
+        it('should throw WeakPasswordError when new password is weak', async () => {
+            passwordHasher.verify.mockResolvedValue(true);
+
+            await expect(
+                service.updateMyInfo({
+                    userId: 'user-id-123',
+                    currentPassword: 'OldPass123',
+                    newPassword: 'weak',
+                }),
+            ).rejects.toBeInstanceOf(WeakPasswordError);
+        });
+
+        it('should throw InvalidNicknameError when nickname is invalid', async () => {
+            await expect(
+                service.updateMyInfo({
+                    userId: 'user-id-123',
+                    nickname: 'a',
+                }),
+            ).rejects.toBeInstanceOf(InvalidNicknameError);
+        });
+
+        it('should throw InvalidProfileImageUrlError when URL is invalid', async () => {
+            await expect(
+                service.updateMyInfo({
+                    userId: 'user-id-123',
+                    profileImage: 'not-a-url',
+                }),
+            ).rejects.toBeInstanceOf(InvalidProfileImageUrlError);
+        });
+
+        it('should throw UserNotFoundError when user not found', async () => {
+            userRepository.findById.mockResolvedValue(null);
+
+            await expect(
+                service.updateMyInfo({
+                    userId: 'non-existent',
+                    nickname: 'newname',
+                }),
+            ).rejects.toBeInstanceOf(UserNotFoundError);
+        });
+
+        it('should not change password when only newPassword is provided', async () => {
+            const result = await service.updateMyInfo({
+                userId: 'user-id-123',
+                newPassword: 'NewPass456',
+            });
+
+            expect(passwordHasher.verify).not.toHaveBeenCalled();
+            expect(passwordHasher.hash).not.toHaveBeenCalled();
+            expect(result.getHashedPassword()).toBe('hashed-password');
         });
     });
 });

@@ -45,4 +45,69 @@ describe('User Entity', () => {
             expect(publicInfo).not.toHaveProperty('hashedPassword');
         });
     });
+
+    describe('update', () => {
+        it('should update only provided fields', () => {
+            const user = User.create({
+                id: 'user-id',
+                email: 'user@example.com',
+                hashedPassword: 'hashed',
+                nickname: 'original',
+            });
+
+            const updated = user.update({ nickname: 'changed' });
+
+            expect(updated.getNickname()).toBe('changed');
+            expect(updated.getEmail()).toBe('user@example.com');
+            expect(updated.getHashedPassword()).toBe('hashed');
+        });
+
+        it('should keep existing values when fields are not provided', () => {
+            const user = User.create({
+                id: 'user-id',
+                email: 'user@example.com',
+                hashedPassword: 'hashed',
+                nickname: 'original',
+                profileImage: 'https://example.com/img.jpg',
+            });
+
+            const updated = user.update({});
+
+            expect(updated.getNickname()).toBe('original');
+            expect(updated.getProfileImage()).toBe(
+                'https://example.com/img.jpg',
+            );
+            expect(updated.getHashedPassword()).toBe('hashed');
+        });
+
+        it('should set updatedAt automatically', () => {
+            const user = User.create({
+                id: 'user-id',
+                email: 'user@example.com',
+                hashedPassword: 'hashed',
+                nickname: 'original',
+            });
+
+            const before = new Date();
+            const updated = user.update({ nickname: 'changed' });
+
+            expect(updated.getUpdatedAt().getTime()).toBeGreaterThanOrEqual(
+                before.getTime(),
+            );
+        });
+
+        it('should return a new instance (immutability)', () => {
+            const user = User.create({
+                id: 'user-id',
+                email: 'user@example.com',
+                hashedPassword: 'hashed',
+                nickname: 'original',
+            });
+
+            const updated = user.update({ nickname: 'changed' });
+
+            expect(updated).not.toBe(user);
+            expect(user.getNickname()).toBe('original');
+        });
+    });
 });

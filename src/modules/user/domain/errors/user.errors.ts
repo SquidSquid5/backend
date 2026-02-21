@@ -123,3 +123,24 @@ export class UserNotFoundError extends PolicyError {
         );
     }
 }
+
+export class InvalidPasswordError extends PolicyError {
+    constructor() {
+        super(
+            ErrorCodes.USER_INVALID_PASSWORD,
+            '현재 비밀번호가 일치하지 않습니다.',
+            undefined,
+            401,
+        );
+    }
+}
+
+export class InvalidProfileImageUrlError extends DomainError {
+    constructor(url: string) {
+        super(
+            ErrorCodes.USER_INVALID_PROFILE_IMAGE_URL,
+            '유효하지 않은 프로필 이미지 URL입니다.',
+            url,
+        );
+    }
+}

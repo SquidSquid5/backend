@@ -10,14 +10,18 @@ export class User {
     private readonly email: string;
     private readonly hashedPassword: string;
     private readonly nickname: string;
+    private readonly profileImage?: string;
     private readonly createdAt: Date;
+    private readonly updatedAt: Date;
 
     private constructor(params: {
         id: string;
         email: string;
         hashedPassword: string;
         nickname: string;
+        profileImage?: string;
         createdAt?: Date;
+        updatedAt?: Date;
     }) {
         this.assertString(params.id, 'User id');
         this.assertString(params.email, 'User email');
@@ -28,7 +32,9 @@ export class User {
         this.email = params.email;
         this.hashedPassword = params.hashedPassword;
         this.nickname = params.nickname;
+        this.profileImage = params.profileImage;
         this.createdAt = params.createdAt ?? new Date();
+        this.updatedAt = params.updatedAt ?? this.createdAt;
     }
 
     public static create(params: {
@@ -36,6 +42,7 @@ export class User {
         email: string;
         hashedPassword: string;
         nickname: string;
+        profileImage?: string;
         createdAt?: Date;
     }): User {
         return new User(params);
@@ -46,7 +53,9 @@ export class User {
         email: string;
         hashedPassword: string;
         nickname: string;
+        profileImage?: string;
         createdAt: Date;
+        updatedAt?: Date;
     }): User {
         return new User(params);
     }
@@ -67,8 +76,16 @@ export class User {
         return this.nickname;
     }
 
+    public getProfileImage(): string | undefined {
+        return this.profileImage;
+    }
+
     public getCreatedAt(): Date {
         return this.createdAt;
+    }
+
+    public getUpdatedAt(): Date {
+        return this.updatedAt;
     }
 
     public toPublicInfo(): UserPublicInfo {
@@ -78,6 +95,22 @@ export class User {
             nickname: this.nickname,
             createdAt: this.createdAt,
         };
+    }
+
+    public update(params: {
+        nickname?: string;
+        profileImage?: string;
+        hashedPassword?: string;
+    }): User {
+        return new User({
+            id: this.id,
+            email: this.email,
+            hashedPassword: params.hashedPassword ?? this.hashedPassword,
+            nickname: params.nickname ?? this.nickname,
+            profileImage: params.profileImage ?? this.profileImage,
+            createdAt: this.createdAt,
+            updatedAt: new Date(),
+        });
     }
 
     private assertString(value: string, fieldName: string): void {

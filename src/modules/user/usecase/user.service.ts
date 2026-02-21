@@ -28,6 +28,7 @@ import {
     type LoginResult,
     type LogoutUserCommand,
     type GetMyInfoCommand,
+    type UpdateMyInfoCommand,
 } from '@user/domain/ports/inbound/user.usecase';
 import {
     DuplicateEmailError,
@@ -36,6 +37,8 @@ import {
     UnauthorizedError,
     BlacklistFailedError,
     UserNotFoundError,
+    InvalidPasswordError,
+    InvalidProfileImageUrlError,
 } from '@user/domain/errors/user.errors';
 
 @Injectable()
@@ -128,6 +131,56 @@ export class UserService implements UserUseCase {
             throw new UserNotFoundError(command.userId);
         }
         return user;
+    }
+
+    public async updateMyInfo(command: UpdateMyInfoCommand): Promise<User> {
+        const user = await this.userRepository.findById(command.userId);
+        if (user === null) {
+            this.logger.warn(`User not found: ${command.userId}`);
+            throw new UserNotFoundError(command.userId);
+        }
+
+        let newHashedPassword: string | undefined;
+        if (command.currentPassword && command.newPassword) {
+            const isValid = await this.passwordHasher.verify(
+                command.currentPassword,
+                user.getHashedPassword(),
+            );
+            if (isValid === false) {
+                throw new InvalidPasswordError();
+            }
+
+            PasswordValidator.validate(command.newPassword);
+            newHashedPassword = await this.passwordHasher.hash(
+                command.newPassword,
+            );
+        }
+
+        if (command.nickname) {
+            NicknameValidator.validate(command.nickname);
+        }
+
+        if (command.profileImage) {
+            this.validateProfileImageUrl(command.profileImage);
+        }
+
+        const updatedUser = user.update({
+            nickname: command.nickname,
+            profileImage: command.profileImage,
+            hashedPassword: newHashedPassword,
+        });
+
+        const savedUser = await this.userRepository.save(updatedUser);
+        this.logger.log(`User updated: ${command.userId}`);
+        return savedUser;
+    }
+
+    private validateProfileImageUrl(url: string): void {
+        try {
+            new URL(url);
+        } catch {
+            throw new InvalidProfileImageUrlError(url);
+        }
     }
 
     private decodeToken(
