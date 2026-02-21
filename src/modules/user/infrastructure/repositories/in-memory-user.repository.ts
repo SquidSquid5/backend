@@ -12,6 +12,13 @@ export class InMemoryUserRepository implements UserRepository {
         return Promise.resolve(user ?? null);
     }
 
+    public findById(id: string): Promise<User | null> {
+        const user = Array.from(this.usersByEmail.values()).find(
+            (u) => u.getId() === id,
+        );
+        return Promise.resolve(user ?? null);
+    }
+
     public save(user: User): Promise<User> {
         try {
             this.usersByEmail.set(user.getEmail(), user);

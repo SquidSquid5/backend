@@ -7,6 +7,7 @@ import {
     WeakPasswordError,
     UnauthorizedError,
     TokenExpiredError,
+    UserNotFoundError,
 } from '@user/domain/errors/user.errors';
 import type { UserRepository } from '@user/domain/ports/outbound/user.repository';
 import type { PasswordHasher } from '@user/domain/ports/outbound/password.hasher';
@@ -25,6 +26,7 @@ describe('UserService', () => {
     beforeEach(() => {
         userRepository = {
             findByEmail: jest.fn(),
+            findById: jest.fn(),
             save: jest.fn(),
         };
         passwordHasher = {
@@ -205,6 +207,37 @@ describe('UserService', () => {
             await expect(
                 service.logout({ token: expiredToken }),
             ).rejects.toBeInstanceOf(TokenExpiredError);
+        });
+    });
+
+    describe('getMyInfo', () => {
+        it('should return user when found', async () => {
+            const user = User.create({
+                id: 'user-id-123',
+                email: 'user@example.com',
+                hashedPassword: 'hashed',
+                nickname: 'tester',
+            });
+            userRepository.findById.mockResolvedValue(user);
+
+            const result = await service.getMyInfo({ userId: 'user-id-123' });
+
+            expect(userRepository.findById).toHaveBeenCalledWith(
+                'user-id-123',
+            );
+            expect(result).toBe(user);
+        });
+
+        it('should throw UserNotFoundError when user not found', async () => {
+            userRepository.findById.mockResolvedValue(null);
+
+            await expect(
+                service.getMyInfo({ userId: 'non-existent-id' }),
+            ).rejects.toBeInstanceOf(UserNotFoundError);
+
+            expect(userRepository.findById).toHaveBeenCalledWith(
+                'non-existent-id',
+            );
         });
     });
 });

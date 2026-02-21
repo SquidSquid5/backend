@@ -22,4 +22,28 @@ describe('InMemoryUserRepository', () => {
         const found = await repository.findByEmail('missing@example.com');
         expect(found).toBeNull();
     });
+
+    describe('findById', () => {
+        it('should find user by id', async () => {
+            const repository = new InMemoryUserRepository();
+            const user = User.create({
+                id: 'user-id-123',
+                email: 'user@example.com',
+                hashedPassword: 'hashed',
+                nickname: 'tester',
+            });
+
+            await repository.save(user);
+            const found = await repository.findById('user-id-123');
+
+            expect(found).toBe(user);
+            expect(found?.getId()).toBe('user-id-123');
+        });
+
+        it('should return null when user not found by id', async () => {
+            const repository = new InMemoryUserRepository();
+            const found = await repository.findById('non-existent-id');
+            expect(found).toBeNull();
+        });
+    });
 });

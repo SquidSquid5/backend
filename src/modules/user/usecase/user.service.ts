@@ -27,6 +27,7 @@ import {
     type UserUseCase,
     type LoginResult,
     type LogoutUserCommand,
+    type GetMyInfoCommand,
 } from '@user/domain/ports/inbound/user.usecase';
 import {
     DuplicateEmailError,
@@ -34,6 +35,7 @@ import {
     TokenExpiredError,
     UnauthorizedError,
     BlacklistFailedError,
+    UserNotFoundError,
 } from '@user/domain/errors/user.errors';
 
 @Injectable()
@@ -117,6 +119,15 @@ export class UserService implements UserUseCase {
         } catch (error) {
             throw new BlacklistFailedError(error);
         }
+    }
+
+    public async getMyInfo(command: GetMyInfoCommand): Promise<User> {
+        const user = await this.userRepository.findById(command.userId);
+        if (user === null) {
+            this.logger.warn(`User not found: ${command.userId}`);
+            throw new UserNotFoundError(command.userId);
+        }
+        return user;
     }
 
     private decodeToken(

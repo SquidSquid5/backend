@@ -1,6 +1,7 @@
 import {
     Body,
     Controller,
+    Get,
     HttpCode,
     HttpStatus,
     Inject,
@@ -16,14 +17,21 @@ import { RegisterResponseDto } from '@user/presentation/dto/register-response.dt
 import { LoginRequestDto } from '@user/presentation/dto/login-request.dto';
 import { LoginResponseDto } from '@user/presentation/dto/login-response.dto';
 import { LogoutResponseDto } from '@user/presentation/dto/logout-response.dto';
-import { UnauthorizedError } from '@user/domain/errors/user.errors';
+import { GetMyInfoResponseDto } from '@user/presentation/dto/get-my-info-response.dto';
+import {
+    UnauthorizedError,
+    TokenExpiredError,
+} from '@user/domain/errors/user.errors';
 import type { Request } from 'express';
+import jwt from 'jsonwebtoken';
 
 @Controller('api/users')
 export class UsersController {
     constructor(
         @Inject(USER_USE_CASE)
         private readonly userUseCase: UserUseCase,
+        @Inject('JWT_SECRET')
+        private readonly jwtSecret: string,
     ) {}
 
     @Post('register')
@@ -61,6 +69,25 @@ export class UsersController {
         return new LogoutResponseDto();
     }
 
+    @Get('me')
+    @HttpCode(HttpStatus.OK)
+    public async getMyInfo(
+        @Req() req: Request,
+    ): Promise<GetMyInfoResponseDto> {
+        const token = this.extractToken(req);
+        const decoded = this.verifyToken(token);
+
+        if (!decoded.userId) {
+            throw new UnauthorizedError();
+        }
+
+        const user = await this.userUseCase.getMyInfo({
+            userId: decoded.userId,
+        });
+
+        return new GetMyInfoResponseDto(user.toPublicInfo());
+    }
+
     private extractToken(req: Request): string {
         const authorization = req.headers.authorization;
         if (
@@ -70,5 +97,20 @@ export class UsersController {
             throw new UnauthorizedError();
         }
         return authorization.substring(7);
+    }
+
+    private verifyToken(
+        token: string,
+    ): jwt.JwtPayload & { userId?: string } {
+        try {
+            return jwt.verify(token, this.jwtSecret) as jwt.JwtPayload & {
+                userId?: string;
+            };
+        } catch (error) {
+            if (error instanceof jwt.TokenExpiredError) {
+                throw new TokenExpiredError();
+            }
+            throw new UnauthorizedError();
+        }
     }
 }

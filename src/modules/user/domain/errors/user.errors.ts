@@ -112,3 +112,14 @@ export class BlacklistFailedError extends InfrastructureError {
         );
     }
 }
+
+export class UserNotFoundError extends PolicyError {
+    constructor(userId: string) {
+        super(
+            ErrorCodes.USER_NOT_FOUND,
+            '사용자를 찾을 수 없습니다.',
+            userId,
+            404,
+        );
+    }
+}

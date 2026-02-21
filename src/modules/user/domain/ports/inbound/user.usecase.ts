@@ -15,6 +15,10 @@ export interface LogoutUserCommand {
     token: string;
 }
 
+export interface GetMyInfoCommand {
+    userId: string;
+}
+
 export interface LoginResult {
     user: User;
     token: string;
@@ -24,6 +28,7 @@ export interface UserUseCase {
     register(command: RegisterUserCommand): Promise<User>;
     login(command: LoginUserCommand): Promise<LoginResult>;
     logout(command: LogoutUserCommand): Promise<void>;
+    getMyInfo(command: GetMyInfoCommand): Promise<User>;
 }
 
 export const USER_USE_CASE = Symbol('USER_USE_CASE');

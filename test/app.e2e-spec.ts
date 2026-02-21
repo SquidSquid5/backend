@@ -54,6 +54,12 @@ function logoutUser(app: INestApplication, token: string) {
         .set('Authorization', `Bearer ${token}`);
 }
 
+function getMyInfo(app: INestApplication, token: string) {
+    return request(app.getHttpServer())
+        .get('/api/users/me')
+        .set('Authorization', `Bearer ${token}`);
+}
+
 describe('User Registration (e2e)', () => {
     let app: INestApplication;
 
@@ -213,5 +219,85 @@ describe('User Logout (e2e)', () => {
 
         await logoutUser(app, token).expect(200);
         await expect(tokenBlacklist.isBlacklisted(token)).resolves.toBe(true);
+    });
+});
+
+describe('Get My Info (e2e)', () => {
+    let app: INestApplication;
+    const jwtSecret = process.env.JWT_SECRET ?? 'dev-secret';
+
+    beforeEach(async () => {
+        app = await createApp();
+        await registerUser(app, 'me@example.com').expect(201);
+    });
+
+    afterEach(async () => {
+        await app.close();
+    });
+
+    it('should return my info with valid JWT', async () => {
+        const login = await loginUser(app, 'me@example.com').expect(200);
+
+        const response = await getMyInfo(app, login.body.token).expect(200);
+
+        expect(response.body).toMatchObject({
+            userId: login.body.userId,
+            email: 'me@example.com',
+            nickname: 'tester',
+            createdAt: expect.any(String),
+        });
+    });
+
+    it('should not include hashedPassword in response', async () => {
+        const login = await loginUser(app, 'me@example.com').expect(200);
+
+        const response = await getMyInfo(app, login.body.token).expect(200);
+
+        expect(response.body).not.toHaveProperty('hashedPassword');
+        expect(response.body).not.toHaveProperty('password');
+        expect(Object.keys(response.body)).toEqual([
+            'userId',
+            'email',
+            'nickname',
+            'createdAt',
+        ]);
+    });
+
+    it('should return 401 without token', async () => {
+        const response = await request(app.getHttpServer())
+            .get('/api/users/me')
+            .expect(401);
+
+        expect(response.body.errorCode).toBe('UNAUTHORIZED');
+    });
+
+    it('should return 401 with invalid token', async () => {
+        const response = await getMyInfo(app, 'invalid.jwt.token').expect(401);
+
+        expect(response.body.errorCode).toBe('UNAUTHORIZED');
+    });
+
+    it('should return 401 with expired token', async () => {
+        const expiredToken = jwt.sign(
+            { userId: 'some-id', email: 'me@example.com' },
+            jwtSecret,
+            { expiresIn: -1 },
+        );
+
+        const response = await getMyInfo(app, expiredToken).expect(401);
+
+        expect(response.body.errorCode).toBe('TOKEN_EXPIRED');
+    });
+
+    it('should return 404 for non-existent user', async () => {
+        const token = jwt.sign(
+            { userId: 'non-existent-id', email: 'ghost@example.com' },
+            jwtSecret,
+            { expiresIn: '1h' },
+        );
+
+        const response = await getMyInfo(app, token).expect(404);
+
+        expect(response.body.errorCode).toBe('NOT_FOUND');
     });
 });

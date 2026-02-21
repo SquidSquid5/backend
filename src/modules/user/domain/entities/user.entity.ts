@@ -1,3 +1,10 @@
+export interface UserPublicInfo {
+    id: string;
+    email: string;
+    nickname: string;
+    createdAt: Date;
+}
+
 export class User {
     private readonly id: string;
     private readonly email: string;
@@ -62,6 +69,15 @@ export class User {
 
     public getCreatedAt(): Date {
         return this.createdAt;
+    }
+
+    public toPublicInfo(): UserPublicInfo {
+        return {
+            id: this.id,
+            email: this.email,
+            nickname: this.nickname,
+            createdAt: this.createdAt,
+        };
     }
 
     private assertString(value: string, fieldName: string): void {
