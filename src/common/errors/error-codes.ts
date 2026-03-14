@@ -8,7 +8,21 @@ export const ErrorCodes = {
     USER_TOKEN_EXPIRED: 'USER_TOKEN_EXPIRED',
     USER_NOT_FOUND: 'USER_NOT_FOUND',
     USER_INVALID_PASSWORD: 'USER_INVALID_PASSWORD',
+    USER_ACCESS_DENIED: 'USER_ACCESS_DENIED',
     USER_INVALID_PROFILE_IMAGE_URL: 'USER_INVALID_PROFILE_IMAGE_URL',
+    ROOM_INVALID_ROOM_NAME: 'ROOM_INVALID_ROOM_NAME',
+    ROOM_NOT_FOUND: 'ROOM_NOT_FOUND',
+    ROOM_NOT_OWNER: 'ROOM_NOT_OWNER',
+    ROOM_NOT_PARTICIPANT: 'ROOM_NOT_PARTICIPANT',
+    ROOM_PRIVATE_ROOM_ACCESS_DENIED: 'ROOM_PRIVATE_ROOM_ACCESS_DENIED',
+    CHAT_MESSAGE_SEND_FAILED: 'CHAT_MESSAGE_SEND_FAILED',
+    CHAT_EMPTY_MESSAGE: 'CHAT_EMPTY_MESSAGE',
+    CHAT_MESSAGE_TOO_LONG: 'CHAT_MESSAGE_TOO_LONG',
+    CHAT_NOT_PARTICIPANT: 'CHAT_NOT_PARTICIPANT',
+    CHAT_ROOM_NOT_FOUND: 'CHAT_ROOM_NOT_FOUND',
+    COMMON_INVALID_INPUT: 'COMMON_INVALID_INPUT',
+    COMMON_NOT_FOUND: 'COMMON_NOT_FOUND',
+    COMMON_INTERNAL_ERROR: 'COMMON_INTERNAL_ERROR',
     INFRA_HASH_FAILED: 'INFRA_HASH_FAILED',
     INFRA_SAVE_FAILED: 'INFRA_SAVE_FAILED',
     INFRA_TOKEN_GENERATION_FAILED: 'INFRA_TOKEN_GENERATION_FAILED',
@@ -18,8 +32,24 @@ export const ErrorCodes = {
 export type ErrorCode = (typeof ErrorCodes)[keyof typeof ErrorCodes];
 
 export function stripErrorPrefix(code: string): string {
+    if (code === 'USER_NOT_FOUND') {
+        return code;
+    }
+
     if (code.startsWith('USER_')) {
         return code.replace(/^USER_/, '');
+    }
+
+    if (code.startsWith('ROOM_')) {
+        return code;
+    }
+
+    if (code.startsWith('CHAT_')) {
+        return code.replace(/^CHAT_/, '');
+    }
+
+    if (code.startsWith('COMMON_')) {
+        return code.replace(/^COMMON_/, '');
     }
 
     if (code.startsWith('INFRA_')) {

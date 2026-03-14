@@ -28,7 +28,9 @@ export class HttpExceptionFilter implements ExceptionFilter {
         if (exception instanceof HttpException) {
             const status = exception.getStatus();
             const resBody = exception.getResponse();
-            const bodyMessage = (resBody as Record<string, unknown>).message;
+            const body = resBody as Record<string, unknown>;
+            const bodyMessage = body.message;
+            const bodyCode = body.errorCode;
             const message =
                 typeof resBody === 'string'
                     ? resBody
@@ -37,9 +39,13 @@ export class HttpExceptionFilter implements ExceptionFilter {
                       : typeof bodyMessage === 'string'
                         ? bodyMessage
                         : exception.message;
+            const errorCode =
+                typeof bodyCode === 'string'
+                    ? bodyCode
+                    : this.mapHttpStatusToCode(status);
 
             response.status(status).json({
-                errorCode: 'BAD_REQUEST',
+                errorCode,
                 message,
             });
             return;
@@ -53,8 +59,32 @@ export class HttpExceptionFilter implements ExceptionFilter {
         );
 
         response.status(500).json({
-            errorCode: 'INTERNAL_SERVER_ERROR',
-            message: '내부 서버 오류가 발생했습니다.',
+            errorCode: 'INTERNAL_ERROR',
+            message: 'An internal server error occurred.',
         });
+    }
+
+    private mapHttpStatusToCode(status: number): string {
+        if (status === 400) {
+            return 'INVALID_INPUT';
+        }
+
+        if (status === 401) {
+            return 'UNAUTHORIZED';
+        }
+
+        if (status === 403) {
+            return 'ACCESS_DENIED';
+        }
+
+        if (status === 404) {
+            return 'NOT_FOUND';
+        }
+
+        if (status >= 500) {
+            return 'INTERNAL_ERROR';
+        }
+
+        return 'INVALID_INPUT';
     }
 }

@@ -27,7 +27,7 @@ async function bootstrap() {
                             ? Object.values(constraints)[0]
                             : '잘못된 요청입니다.';
                     return new BadRequestException({
-                        errorCode: 'BAD_REQUEST',
+                        errorCode: 'INVALID_INPUT',
                         message,
                     });
                 },

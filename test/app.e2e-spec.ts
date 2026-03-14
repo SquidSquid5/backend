@@ -8,6 +8,10 @@ import {
     TOKEN_BLACKLIST,
     type TokenBlacklist,
 } from '../src/modules/user/domain/ports/outbound/token.blacklist';
+import {
+    CHAT_USE_CASE,
+    type ChatUseCase,
+} from '../src/modules/chat/domain/ports/inbound/chat.usecase';
 
 async function createApp(): Promise<INestApplication> {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -309,7 +313,7 @@ describe('Get My Info (e2e)', () => {
 
         const response = await getMyInfo(app, token).expect(404);
 
-        expect(response.body.errorCode).toBe('NOT_FOUND');
+        expect(response.body.errorCode).toBe('USER_NOT_FOUND');
     });
 });
 
@@ -449,6 +453,46 @@ describe('Update My Info (e2e)', () => {
             nickname: 'newnick',
         }).expect(404);
 
-        expect(response.body.errorCode).toBe('NOT_FOUND');
+        expect(response.body.errorCode).toBe('USER_NOT_FOUND');
+    });
+});
+
+describe('Chat domain (e2e)', () => {
+    let app: INestApplication;
+    let chatUseCase: ChatUseCase;
+
+    beforeEach(async () => {
+        app = await createApp();
+        chatUseCase = app.get<ChatUseCase>(CHAT_USE_CASE);
+    });
+
+    afterEach(async () => {
+        await app.close();
+    });
+
+    it('should return EMPTY_MESSAGE when sending blank message', async () => {
+        await expect(
+            chatUseCase.sendMessage({
+                roomId: 'room-1',
+                userId: 'user-1',
+                nickname: 'user-one',
+                content: '   ',
+            }),
+        ).rejects.toMatchObject({
+            code: 'CHAT_EMPTY_MESSAGE',
+        });
+    });
+
+    it('should return MESSAGE_TOO_LONG when content exceeds limit', async () => {
+        await expect(
+            chatUseCase.sendMessage({
+                roomId: 'room-1',
+                userId: 'user-1',
+                nickname: 'user-one',
+                content: 'a'.repeat(1001),
+            }),
+        ).rejects.toMatchObject({
+            code: 'CHAT_MESSAGE_TOO_LONG',
+        });
     });
 });
